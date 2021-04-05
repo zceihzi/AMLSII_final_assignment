@@ -11,7 +11,7 @@
 # !pip install textattack
 # # !pip install GPUtil
 
-# !python -m spacy download en_core_web_sm
+# !python -m spacy download en_core_web_md
 # !python -m spacy download en_core_web_lg
 # !python -m textblob.download_corpora
 # !wget --quiet https://raw.githubusercontent.com/tensorflow/models/master/official/nlp/bert/tokenization.py
@@ -286,10 +286,9 @@ def word2Vec_transform(df,save_pkl):
         save_to_pkl("X_word2Vec.pkl",np.asarray(temp))
     return np.asarray(temp)
 
-def load_pretrained_embedding_model(df,df_submission,X_train,X_val,X_test,EMBEDDING_DIM, model):
+def load_pretrained_embedding_model(df_train,df_submission,X_train,X_val,X_test,EMBEDDING_DIM, model):
     # Instantiate the tokenizer object
     tokenizer_obj = Tokenizer()
-#   total_reviews = df.review
     total_reviews = pd.concat([df_train.review,df_submission.review])
     tokenizer_obj.fit_on_texts(total_reviews)
 
@@ -319,10 +318,11 @@ def load_pretrained_embedding_model(df,df_submission,X_train,X_val,X_test,EMBEDD
     X_submission_sequences = tokenizer_obj.texts_to_sequences(X_submission_sentences)    
 
     # Load pretrained embedding model  
-    print('Loading word vectors from server...')
     try: 
-        w2v_model = KeyedVectors.load("../input/gensim-embeddings-dataset/GoogleNews-vectors-negative300.gensim", mmap='r')
+        print('Loading word vectors from local file...')
+        w2v_model = KeyedVectors.load("word2vec-google-news-300.wordvectors", mmap='r')
     except FileNotFoundError:
+        print('Loading word vectors from server...')
         w2v_model = gensim.downloader.load(model)
         word_vectors = w2v_model
         word_vectors.save(str(model)+".wordvectors")
@@ -451,43 +451,6 @@ def data_partitioning(X,y,test_size, summary):
         print("y_test has shape:", y_test.shape)
     return X_train,X_val,X_test,y_train,y_val,y_test
 
-
-def train_deep_model(model,X_train, y_train, X_val, y_val, BATCH_SIZE, EPOCHS, plot, callback,model_name):
-    # load pre-trained word embeddings into an Embedding layer
-    # the trainable parameter is set to False so as to keep the embeddings fixed
-    if callback is True:
-        logdir = os.path.join("logs/"+str(model_name))        
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=1)
-        cm_callback = keras.callbacks.LambdaCallback(on_epoch_end=log_confusion_matrix)
-
-        history = model.fit(X_train,
-                  to_categorical(y_train),
-                  batch_size=BATCH_SIZE,
-                  epochs=EPOCHS,
-                  validation_data=(X_val,to_categorical(y_val)),
-                  callbacks=[tensorboard_callback,cm_callback])
-        
-    else:
-        history = model.fit(X_train,
-                  to_categorical(y_train),
-                  batch_size=BATCH_SIZE,
-                  epochs=EPOCHS,
-                  validation_data=(X_val,to_categorical(y_val)))
-
-    if plot is True:
-        fig,(ax) = plt.subplots(1, 2, figsize=(13,4))
-        ax[0].set_title("Training and Validation Accuracy")
-        ax[0].plot(history.history['loss'], label='loss')
-        ax[0].plot(history.history['val_loss'], label='val_loss')
-        ax[0].legend(loc='upper right')
-
-        ax[1].set_title("Training and Validation Accuracy")
-        ax[1].plot(history.history['accuracy'], label='acc')
-        ax[1].plot(history.history['val_accuracy'], label='val_acc')
-        ax[1].legend(loc='lower right')
-        plt.show()
-    return model
-
 def train_bert_model(model,X_train, y_train, X_val, y_val, BATCH_SIZE, EPOCHS, plot, callback,model_name):
     # load pre-trained word embeddings into an Embedding layer
     # the trainable parameter is set to False so as to keep the embeddings fixed
@@ -524,61 +487,6 @@ def train_bert_model(model,X_train, y_train, X_val, y_val, BATCH_SIZE, EPOCHS, p
         ax[1].legend(loc='lower right')
         plt.show()
     return model
-
-def plot_confusion_matrix(cm):
-    #class_names = ["Negative","Positive"]
-    #class_names = ["Negative","Neutral","Positive"]
-    class_names = ["Very Negative","Negative","Neutral","Positive", "Very Positive"]
-    figure = plt.figure(figsize=(8, 8))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title("Confusion matrix")
-    plt.colorbar()
-    tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, class_names, rotation=45)
-    plt.yticks(tick_marks, class_names)
-
-    # Compute the labels from the normalized confusion matrix.
-    labels = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
-
-    # Use white text if squares are dark; otherwise black.
-    threshold = cm.max() / 2.
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        color = "white" if cm[i, j] > threshold else "black"
-        plt.text(j, i, labels[i, j], horizontalalignment="center", color=color)
-
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    return figure
-      
-def plot_to_image(figure):
-    # Save the plot to a PNG in memory.
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    # Closing the figure prevents it from being displayed directly inside
-    # the notebook.
-    plt.close(figure)
-    buf.seek(0)
-    # Convert PNG buffer to TF image
-    image = tf.image.decode_png(buf.getvalue(), channels=4)
-    # Add the batch dimension
-    image = tf.expand_dims(image, 0)
-    return image
-
-def log_confusion_matrix(epoch, logs):
-  # Use the model to predict the values from the validation dataset.
-    test_pred_raw = model.predict(X_val)
-    test_pred = np.argmax(test_pred_raw, axis=1)
-    # Calculate the confusion matrix.
-    cm = sklearn.metrics.confusion_matrix(y_val, test_pred)
-    # Log the confusion matrix as an image summary.
-    figure = plot_confusion_matrix(cm)
-    cm_image = plot_to_image(figure)
-    logdir = os.path.join("logs/"+str(model_name))        
-    file_writer_cm = tf.summary.create_file_writer(logdir + '/cm')
-    # Log the confusion matrix as an image summary.
-    with file_writer_cm.as_default():
-        tf.summary.image("Confusion Matrix", cm_image, step=epoch)
         
 def plot_confusion_matrix_test(y_test,y_pred, multiclass):
     data = confusion_matrix(y_test, y_pred)
@@ -640,12 +548,13 @@ def generate_pred(model,X_test,y_test):
     plot_confusion_matrix_test(y_test,y_pred,multiclass=5)
     print(classification_report(y_test, y_pred))
 
-def generate_submission(model,X_test,model_name):
+def generate_submission(model,X_test,df_submission,model_name, save):
     y_pred_sub = NN_predict(model,X_test, multiclass=5)
     submission = df_submission.copy()
     submission = submission.drop(["review"], axis=1)
     submission["Sentiment"] = y_pred_sub
-    submission.to_csv('/kaggle/working/'+str(model_name)+".csv", index=False)
+    if save is True:
+        submission.to_csv('/kaggle/working/'+str(model_name)+".csv", index=False)
     return submission
 
 def plot_learning_curve(estimator, title, X, y):

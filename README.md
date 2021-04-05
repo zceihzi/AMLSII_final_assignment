@@ -42,7 +42,7 @@ Before you begin, ensure you have met the following requirements:
 
 Since the code was submitted in a notebook format, it is possible to visualise the output of each cell by simply clicky on the file directly on this page. If any user wishes to test the code, it is recommended to run the main.ipynb through a Jupiter notebook, or alternatively on Visual studio code. Please note that these are only suggestions. To run this file, basic python libaries need to be installed such as Pandas, numpy and so on.\
  \
-The code also uses other less common packages such as spacy, gensim or textattack. Thus, please make sure that the following libraries are installed in your machine. Otherwise please use the guidelines below to install thenm through your terminal: 
+The code also uses ot                                                                                                           `               ``                              ``  `   her less common packages such as spacy, gensim or textattack. Thus, please make sure that the following libraries are installed in your machine. Otherwise please use the guidelines below to install thenm through your terminal: 
 
 * `progressbar` (pip install progressbar)
 * `contractions` (pip install contractions)
@@ -58,7 +58,6 @@ The code also uses other less common packages such as spacy, gensim or textattac
 
 
 For spacy depency files please execute: 
-
 * python -m spacy download en_core_web_sm
 * python -m spacy download en_core_web_lg
 * python -m textblob.download_corpora
