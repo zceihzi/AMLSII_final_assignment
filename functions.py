@@ -1,3 +1,7 @@
+"""
+This file contains all the commands used to install the libraries used by the code. All functions created are listed in thus file 
+in order to allow better code readability in the main.py file.
+"""
 # !pip install progressbar
 # !pip install contractions
 
@@ -17,15 +21,22 @@
 # !wget --quiet https://raw.githubusercontent.com/tensorflow/models/master/official/nlp/bert/tokenization.py
 # !pip install sentencepiece
 
+
+
+
+''' -----------------------------------IMPORT DECLARATION ----------------------------------- '''
+''' ----------------------------------------------------------------------------------------- '''
+# Imports to remove warnings for better code output readibility
 import warnings
 warnings.filterwarnings('ignore')
 
+# Imports used to import files from directories and visualise heavy loop progress
 import itertools
-import sklearn
 import io
 import tqdm
 from progressbar import ProgressBar
 
+# Main library for processing matrices and manipulating data in a tabular manner
 import pandas as pd
 import numpy as np
 from random import randint
@@ -33,49 +44,44 @@ import os
 import re
 import pandas as pd
 
+# Libraries to save and encode data
 import contractions
 import unicodedata
-# from wordcloud import wordcloud
-# from textblob import TextBlob
 import joblib
 
 # Visualisation libraries
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Deep Learning 
+# Deep learning libraries for pre-processing and inference
 import tensorflow as tf
 import keras
 from keras.models import Model,Sequential
-
 from keras.layers import Activation,Flatten,Dense,Embedding,Input,GlobalAveragePooling1D,GlobalMaxPool1D,Conv1D,MaxPooling1D,concatenate,SpatialDropout1D
 from keras.layers import LSTM,GRU,Bidirectional, Dropout,Permute,multiply,Layer
 from keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
-
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.optimizers import Adam
 import keras.backend as K
-
 import torch
 import tensorflow_hub as hub
 import tokenization
 from transformers import BertTokenizer
 from transformers import TFBertModel,AutoTokenizer,BertForMaskedLM
+from tensorboard.plugins.hparams import api as hp
 
-# Used to standardise the date and undertake PCA
+# Supervised learning library used for data encoding, partitionning and inference
+import sklearn
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.pipeline import Pipeline
-
-# Scikit-learn imports for data encoding and partitionning
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import TruncatedSVD as TSVD
-
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import GridSearchCV,learning_curve
 from sklearn.metrics import accuracy_score
@@ -83,48 +89,99 @@ from sklearn.metrics import (confusion_matrix,roc_auc_score, precision_recall_cu
                              roc_curve, recall_score,accuracy_score, classification_report, f1_score,
                              precision_recall_fscore_support, log_loss)
 
-# Spacy imports
+# Spacy imports used for word embedding creation
 import spacy
 from spacy.lang.en.stop_words import STOP_WORDS as stopwords
 
-# Gensim Imports
+# Gensim Imports used for neural embedding layer creation
 import gensim.downloader
 from gensim.models import Word2Vec
 from gensim.models import KeyedVectors
 
-# NLTK 
+# NLTK: library used for word tokenisation and stop word removal
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 
+# Library leveraging pre-trained transformers and word embeddings for text augmentation.
 from textattack.augmentation import WordNetAugmenter,EmbeddingAugmenter
 
+
+
+
+''' ----------------------------------- MAIN FUNCTION DECLARATION ----------------------------------- '''
+''' -------------------------------------------------------------------------------------------------'''
+
 def load_sub_data():
+    """
+    Loads the unlabeled submission data that was used to compare the generalization capabilities of the best performing model and 
+    the BERT implementartion
+    ----------
+    Parameters:
+    NONE
+    ----------
+    """
     df_submission = pd.read_csv(os.path.abspath('Dataset/test.tsv'),sep="\t")
     df_submission = df_submission.rename(columns={"Phrase": "review"}, errors="raise")
     df_submission = df_submission.drop(["SentenceId"], axis=1)
     return df_submission
     
 def load_train_data():
+    """
+    Loads the train data from the "Dataset" folder and returns a Pandas Dataframe containing all reviews and their corresponding label
+    ----------
+    Parameters:
+    NONE
+    ----------
+    """
     df_train = pd.read_csv(os.path.abspath('Dataset/train.tsv'),sep="\t")
     df_train = df_train.rename(columns={"Phrase": "review", "Sentiment": "sentiment"}, errors="raise")
     df_train = df_train.drop(["PhraseId","SentenceId"], axis=1)
     return df_train
 
 def plot_class_distribution(field):
+    """
+    Plots the class distribution for a given Pandas Dataframe column.
+    ----------
+    Parameters:
+    field : The values of a Dataframe column. For example : df.review.values
+    ----------
+    """
     print(field.value_counts())
     sns.countplot(x=field).set_title('Visualisation of the dataset class distribution')
     plt.show()
     
 def data_cleaning(df):
+    """
+    Leverages a set of functions to clean text data for enhanced training.
+    ----------
+    Parameters:
+    df : A pandas dataframe containing reviews and their labels
+    ----------
+    """
     df["review"] = clean_sentences(df["review"],remove_stop_words=False)
     df = extract_most_uncommon_words(df)
     return df
 
 def remove_accented_chars(x):
+    """
+    Function used in clean_sentences() to remove accents from reviews.
+    ----------
+    Parameters:
+    x : A string that represents user reviews 
+    ----------
+    """
     x = unicodedata.normalize('NFKD', x).encode('ascii', 'ignore').decode('utf-8', 'ignore')
     return x
 
 def clean_sentences(review,remove_stop_words=False):
+    """
+    Function used in clean_sentences() to remove accents from reviews.
+    ----------
+    Parameters:
+    review: A string that represents user reviews in the created Pandas DataFrame 
+    remove_stop_words : Boolean specifying wheter stop words should be removed from text data
+    ----------
+    """
     #Lower Case Conversion 
     review = review.apply(lambda x: str(x).lower())
     # Contraction to Expansion 
@@ -146,14 +203,31 @@ def clean_sentences(review,remove_stop_words=False):
     return review
 
 def extract_most_uncommon_words(df):
+    """
+    Function that removes extremely rare words that could bias models during training 
+    ----------
+    Parameters:
+    df : A pandas dataframe containing reviews and their labels
+    ----------
+    """
     text = ' '.join(df["review"])
     text = text.split()
     freq_comm = pd.Series(text).value_counts()
-    uncommon_words= freq_comm[freq_comm == 1]
+    uncommon_words = freq_comm[freq_comm == 1]
     df['review'] = df['review'].apply(lambda x: ' '.join([t for t in x.split() if t not in uncommon_words]))
     return df
 
 def apply_TSVD(X_train,X_test,plot,components):
+    """
+    Function used for dimensionality reduction through Truncated single value decomposition (TSVD)
+    ----------
+    Parameters:
+    X_train: The training set obtained after partitionning
+    X_test: The test data obtained after partitionning 
+    plot: Boolean specifying whether to plot the explained variance or not 
+    components
+    ----------
+    """
     tsvd = TSVD(n_components=components, random_state=0)
     print('Initial train matrix shape is: ', X_train.shape)
     print('Initial test shape is: ', X_test.shape)
@@ -167,6 +241,16 @@ def apply_TSVD(X_train,X_test,plot,components):
     return X_train,X_test,tsvd
 
 def back_translation_augmentation(X_train,y_train):
+    """
+    This function was used to generate synthetic instances of the train set. It leverages a pre-trained transformer to translate text to 
+    Deutsch and translate the resulting sentence back to english 
+    ----------
+    Parameters:
+    X_train: The training set obtained after partitionning
+    y_train: The training labels obtained after partitionning 
+    ----------
+    """
+
     class0_rev=[]
     class0_sen=[]
     
@@ -253,6 +337,14 @@ def back_translation_augmentation(X_train,y_train):
     return class0_aug,class1_aug,class3_aug,class4_aug
 
 def Tfidf_transformation(df,ngram_range):
+    """
+    This function transforms the text data into TFIDF features using a defined n-gram representation
+    ----------
+    Parameters:
+    df: A pandas dataframe containing reviews and their labels
+    ngram_range: the n-gram representation to be used to create TFIDF features
+    ----------
+    """
     X_vect= TfidfVectorizer(stop_words='english',ngram_range=ngram_range)
     X= X_vect.fit_transform(df["review"])
     print("Before transformation: The data had shape: ", df["review"].shape)
@@ -260,6 +352,13 @@ def Tfidf_transformation(df,ngram_range):
     return X
 
 def return_best_tfidf(df):
+    """
+    This function runs a grid-search to find the best n-gram parameters for the function above
+    ----------
+    Parameters:
+    df: A pandas dataframe containing reviews and their labels
+    ----------
+    """
     pipe = Pipeline([('tfidf', TfidfVectorizer()),
                      ('clf', LogisticRegression(max_iter = 10000))])
     hyperparameters = {'tfidf__ngram_range': ((1,1), (1,2), (1,3),(1,4))}
@@ -269,14 +368,37 @@ def return_best_tfidf(df):
     return clf.best_params_
 
 def save_to_pkl(filename,variable):
+    """
+    This function was used to save files issued from large and lenghty processing fo reuse 
+    ----------
+    Parameters:
+    filename: Name of the file to be saved
+    variable : The variable where precessing techniques were applied 
+    ----------
+    """
     file=str(filename)  
     joblib.dump(variable, file)
     
 def load_pkl(path):
+    """
+    This function loads any pickle file already saved 
+    ----------
+    Parameters:
+    path: A string defining the path of the file to be retreived  
+    ----------
+    """
     file = joblib.load(path)
     return file
 
 def word2Vec_transform(df,save_pkl):
+    """
+    This function was used to convert the training data into word2Vec vector representations
+    ----------
+    Parameters:
+    df: A pandas dataframe containing reviews and their labels
+    save_pkl : Boolean to specify if the resulting transformed data should be saved in a pickle format
+    ----------
+    """
     temp=[]
     pbar = ProgressBar()
     nlp = spacy.load('en_core_web_md')
@@ -287,6 +409,20 @@ def word2Vec_transform(df,save_pkl):
     return np.asarray(temp)
 
 def load_pretrained_embedding_model(df_train,df_submission,X_train,X_val,X_test,EMBEDDING_DIM, model):
+    """
+    This function was used to load the pre-trained Word2Vec model that was used to create the Neural Network embedding layer. The model 
+    will be loaded locally if it exists. Otherwise it will be downloaded directly from the server
+    ----------
+    Parameters:
+    df_train: A pandas dataframe containing the training data loaded from the Kaggle competition
+    df_submission : A pandas dataframe containing the submission data loaded from the Kaggle competition
+    X_train: The training set obtained after partitionning    
+    X_val:The validation set obtained after partitionning 
+    X_test:The test set obtained after partitionning 
+    EMBEDDING_DIM: The Embedding dimensions defining the lenght of the vector representations
+    model: The name of the pretrained model to load
+    ----------
+    """
     # Instantiate the tokenizer object
     tokenizer_obj = Tokenizer()
     total_reviews = pd.concat([df_train.review,df_submission.review])
@@ -353,10 +489,22 @@ def load_pretrained_embedding_model(df_train,df_submission,X_train,X_val,X_test,
     
     return EMBEDDING_DIM,MAX_SEQUENCE_LENGTH,MAX_VOCAB_SIZE,w2v_model,embedding_matrix,X_train,X_val,X_test,X_submission
 
-def train_Word2Vec_model(EMBEDDING_DIM = 100):
+def train_Word2Vec_model(df_train,df_submission,X_train,X_val,X_test,EMBEDDING_DIM):
+    """
+    This function was used to train manually the Word2Vec model that was used to create the Neural Network embedding layer. 
+    ----------
+    Parameters:
+    df_train: A pandas dataframe containing the training data loaded from the Kaggle competition
+    df_submission : A pandas dataframe containing the submission data loaded from the Kaggle competition
+    X_train: The training set obtained after partitionning    
+    X_val:The validation set obtained after partitionning 
+    X_test:The test set obtained after partitionning 
+    EMBEDDING_DIM: The Embedding dimensions defining the lenght of the vector representations
+    ----------
+    """
     # Instantiate the tokenizer object
     tokenizer_obj = Tokenizer()
-    total_reviews = df.review
+    total_reviews = pd.concat([df_train.review,df_submission.review])
     tokenizer_obj.fit_on_texts(total_reviews)
 
     # Pad sequences
@@ -369,12 +517,43 @@ def train_Word2Vec_model(EMBEDDING_DIM = 100):
     print('Found %s unique tokens in the dataset.' % len(word2idx))
 
     # prepare text samples and their labels
-    sentences = df["review"].fillna("DUMMY_VALUE").values
+    X_train_sentences = X_train
+    X_train_sequences = tokenizer_obj.texts_to_sequences(X_train_sentences)
+    
+    # prepare validation samples and their labels
+    X_val_sentences = X_val
+    X_val_sequences = tokenizer_obj.texts_to_sequences(X_val_sentences)
+    
+    # prepare validation samples and their labels
+    X_test_sentences = X_test
+    X_test_sequences = tokenizer_obj.texts_to_sequences(X_test_sentences)
+    
+    # prepare Kaggle unseen data and its labels    
+    X_submission_sentences = df_submission["review"].values
+    X_submission_sequences = tokenizer_obj.texts_to_sequences(X_submission_sentences)
+    
+     # pad sequences so that we get a N x T matrix
+    X_train = pad_sequences(X_train_sequences, maxlen=MAX_SEQUENCE_LENGTH)
+    print('Shape of X_train data tensor:', X_train.shape)
+    
+    # pad sequences so that we get a N x T matrix
+    X_val = pad_sequences(X_val_sequences, maxlen=MAX_SEQUENCE_LENGTH)
+    print('Shape of X_val data tensor:', X_val.shape)
+    
+    # pad sequences so that we get a N x T matrix
+    X_test = pad_sequences(X_test_sequences, maxlen=MAX_SEQUENCE_LENGTH)
+    print('Shape of X_test data tensor:', X_test.shape)
+    
+    # pad sequences so that we get a N x T matrix
+    X_submission = pad_sequences(X_submission_sequences, maxlen=MAX_SEQUENCE_LENGTH)
+    print('Shape of X_submission data tensor:', X_submission.shape)
+    
+    # prepare text samples and their labels
+    sentences = df_train["review"].values
     sequences = tokenizer_obj.texts_to_sequences(sentences)
-
+    
     w2v_model = Word2Vec(min_count=10,
                          window=2,
-                         size=EMBEDDING_DIM,
                          sample=6e-5, 
                          alpha=0.03, 
                          min_alpha=0.007, 
@@ -382,16 +561,12 @@ def train_Word2Vec_model(EMBEDDING_DIM = 100):
 
     # Train Word2vec on the data corpus
     print('Training word vectors...')
-    documents = [_text.split() for _text in df.review] 
+    documents = [_text.split() for _text in df_train.review] 
     w2v_model.build_vocab(documents)
-    words = w2v_model.wv.vocab.keys()
-    vocab_size = len(words)
-    print("Vocab size", vocab_size)
+#     words = w2v_model.wv.vocab.keys()
+#     vocab_size = len(words)
+#     print("Vocab size", vocab_size)
     w2v_model.train(documents, total_examples=w2v_model.corpus_count, epochs=30)
-    
-     # pad sequences so that we get a N x T matrix
-    data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
-    print('Shape of data tensor:', data.shape)
 
     # prepare embedding matrix
     print('Filling pre-trained embeddings...')
@@ -401,9 +576,19 @@ def train_Word2Vec_model(EMBEDDING_DIM = 100):
             embedding_matrix[i] = w2v_model.wv[word]
     print("The final embedding matrix has shape: ", embedding_matrix.shape)
     
-    return EMBEDDING_DIM,MAX_SEQUENCE_LENGTH,MAX_VOCAB_SIZE, data,w2v_model,embedding_matrix
+    return EMBEDDING_DIM,MAX_SEQUENCE_LENGTH,MAX_VOCAB_SIZE,w2v_model,embedding_matrix,X_train,X_val,X_test,X_submission
+    
 
 def bert_encode(texts, tokenizer, max_len):
+    """
+    This function uses BERT tokenizer to pre-process data before being fed to the model
+    ----------
+    Parameters:
+    texts: The training data at its initial textual form 
+    tokenizer : A pre-loaded Bert tokenizer from Tensorflow hub
+    max_len: The maximum sequence lenght of the corpus
+    ----------
+    """
     all_tokens = []
     all_masks = []
     all_segments = []
@@ -426,6 +611,15 @@ def bert_encode(texts, tokenizer, max_len):
 
 
 def data_partitioning(X,y,test_size, summary):
+    """
+    This funtion was used to create a train and test set for inference 
+    ----------
+    X: The Data to use during training
+    y: The corresponding dataset labels
+    test_size : The desired size of the test set (For example: 0.2)
+    summary: Boolean stating if a quick data summary should be printed
+    ----------
+    """
     train_ratio = 0.70
     validation_ratio = 0.15
     test_ratio = 0.15
@@ -452,6 +646,22 @@ def data_partitioning(X,y,test_size, summary):
     return X_train,X_val,X_test,y_train,y_val,y_test
 
 def train_bert_model(model,X_train, y_train, X_val, y_val, BATCH_SIZE, EPOCHS, plot, callback,model_name):
+    """
+    This function trains the pre-trained BERT mdoel on a mainstream task. The fine tuning also implemented callbacks to return the best
+    model in terms of validation loss.
+    ----------
+    model: The name of the pre-trained model to be used
+    X_train: The training set obtain after partitionning    
+    y_train: The labels associated to training set obtained after partitionning    
+    X_val: The validation set obtain after partitionning  
+    y_val: The labels associated to training set obtained after partitionning    
+    BATCH_SIZE: The desired batch size ued during training 
+    EPOCHS: Number of epochs to use for training
+    plot: Boolean stating whether the raining curve should be plotter or not
+    callback: Boolean defining whether callbacks should be used by the model during training
+    model_name: A string defining the model name
+    ----------
+    """
     # load pre-trained word embeddings into an Embedding layer
     # the trainable parameter is set to False so as to keep the embeddings fixed
     if callback is True:
@@ -476,7 +686,7 @@ def train_bert_model(model,X_train, y_train, X_val, y_val, BATCH_SIZE, EPOCHS, p
 
     if plot is True:
         fig,(ax) = plt.subplots(1, 2, figsize=(13,4))
-        ax[0].set_title("Training and Validation Accuracy")
+        ax[0].set_title("Training and Validation Loss")
         ax[0].plot(history.history['loss'], label='loss')
         ax[0].plot(history.history['val_loss'], label='val_loss')
         ax[0].legend(loc='upper right')
@@ -489,6 +699,14 @@ def train_bert_model(model,X_train, y_train, X_val, y_val, BATCH_SIZE, EPOCHS, p
     return model
         
 def plot_confusion_matrix_test(y_test,y_pred, multiclass):
+    """
+    This function plots the confusion matrix of a model after prediction
+    ----------
+    y_test: The labels corresponding to the training reviews
+    y_pred: The predictions outputed by the model
+    multiclass : Number of class to be predicted by the model
+    ----------
+    """
     data = confusion_matrix(y_test, y_pred)
     if multiclass == 2:
         labels = ["Negative","Positive"]
@@ -505,6 +723,14 @@ def plot_confusion_matrix_test(y_test,y_pred, multiclass):
     plt.show()
     
 def NN_predict(model,X_test, multiclass):
+    """
+    This model takes a trained model and generates label predictions for the unseen data 
+    ----------
+    model: The model that was previously trained
+    X_test: The test set obtained from partitionning
+    multiclass : The number of classes to be predicted
+    ----------
+    """
     if multiclass == 2:
         labels = [0, 1]
     if multiclass == 3:
@@ -521,6 +747,16 @@ def NN_predict(model,X_test, multiclass):
     return temp
 
 def train_test(model,X_train,y_train,X_test,y_test):
+    """
+    This function trains any supervised learning model and returns a classification table for analyisis
+    ----------
+    model: model: The model that was previously trained
+    X_train: The train set obtained from partitionning
+    y_train:The corresponding train labels
+    X_test: The test set obtained from partitionning
+    y_test: The corresponding test labels
+    ----------
+    """
     model = model
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
@@ -538,26 +774,62 @@ def train_test(model,X_train,y_train,X_test,y_test):
     return y_pred,train_acc,test_acc, model
 
 def LR_predict(X_train_word2Vec,y_train_word2Vec,X_test_word2Vec,y_test_word2Vec):
+    """
+    This function returns the predicted test labels for a given model
+    ----------
+    X_train_word2Vec: The training data issued from Word2Vec feature processing
+    y_train_word2Vec: The training labels issued from Word2Vec feature processing
+    X_test_word2Vec: The test data issued from Word2Vec feature processing
+    y_test_word2Vec: The test labels issued from Word2Vec feature processing
+    ------
+    """
     LR =  LogisticRegression(max_iter = 5000)
     plot_learning_curve (LR,"Learning curve for LR",X_train_word2Vec,y_train_word2Vec)
     y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train_word2Vec,y_train_word2Vec,X_test_word2Vec,y_test_word2Vec)
     plot_confusion_matrix_test(y_test_word2Vec,y_pred_LR,multiclass=5)
 
 def generate_pred(model,X_test,y_test):
+    """
+    This function converts the softmax output of a deep learning model and converts it into a classification decision
+    ----------
+    model: model: The model that was previously trained
+    X_test: The test set obtained from partitionning
+    y_test: The corresponding test labels
+    ------
+    """
     y_pred = NN_predict(model,X_test, multiclass=5)
     plot_confusion_matrix_test(y_test,y_pred,multiclass=5)
     print(classification_report(y_test, y_pred))
 
 def generate_submission(model,X_test,df_submission,model_name, save):
+    """
+    ----------
+    model: model: The model that was previously trained
+    X_test: The test set obtained from partitionning
+    df_submission:
+    model_name: A string defining name of a given model
+    save: Boolean stating whether submission data should be saved locally
+    ------
+    """
     y_pred_sub = NN_predict(model,X_test, multiclass=5)
     submission = df_submission.copy()
     submission = submission.drop(["review"], axis=1)
     submission["Sentiment"] = y_pred_sub
     if save is True:
-        submission.to_csv('/kaggle/working/'+str(model_name)+".csv", index=False)
+        submission.to_csv(str(model_name)+".csv", index=False)
     return submission
 
 def plot_learning_curve(estimator, title, X, y):
+    """
+    Generates a plot of the training and validation curves during learning
+    ----------
+    Parameters:
+    estimator: The model defined to solve the classification problem
+    title: A string that represents the overall graph's title
+    X: Typically the set of images we want to use to train our model
+    y: The label of each image in X
+    ----------
+    """
     train_sizes=np.linspace(.1, 1.0, 5)
     cv=3
     fig, ax = plt.subplots(1,1)
@@ -590,3 +862,80 @@ def plot_learning_curve(estimator, title, X, y):
                  label="Cross-validation score")
     ax.legend(loc="best")
     return plt
+
+def run(run_dir, hparams):
+    """
+    This function initiate the grid search for paraneter tuning
+    ----------
+    Parameters:
+    run_dir: The directory where logs should be written
+    hparams: A dictianry containing the parameters to be tested
+    ----------
+    """
+    with tf.summary.create_file_writer(run_dir).as_default():
+        hp.hparams(hparams)  # record the values used in this trial
+        accuracy = train_test_model(hparams)
+        tf.summary.scalar(METRIC_ACCURACY, accuracy, step=1)
+
+def train_test_model(hparams):
+    """
+    This function defines a specific model architecture and trains it on a given training set
+    ----------
+    Parameters:
+    hparams: A dictianry containing the parameters to be tested
+    ----------
+    """
+    sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,))
+    embedded_sequences = embedding_layer(sequence_input)
+    
+    biLSTM_1 = Bidirectional(LSTM(100, return_sequences=True))(embedded_sequences)
+    
+    conv_1 = Conv1D(hparams[HP_NUM_CONV_UNITS], 2, activation='relu', name='conv_1')(biLSTM_1)  
+    drop_out_1 = Dropout(hparams[HP_DROPOUT], name='drop_out_1')(conv_1)
+    gmp_1 = GlobalMaxPool1D(name='gmp_1')(drop_out_1)
+    
+    conv_2 = Conv1D(hparams[HP_NUM_CONV_UNITS], 3, activation='relu', name='conv_2')(biLSTM_1)
+    drop_out_2 = Dropout(hparams[HP_DROPOUT], name='drop_out_2')(conv_2)
+    gmp_2 = GlobalMaxPool1D(name='gmp_2')(drop_out_2)
+
+    concat = concatenate([gmp_1,gmp_2])
+    mp_dense = Dense(hparams[HP_NUM_DENSE_UNITS], activation='relu', name='mp_dense')(concat)
+    drop_out_4 = Dropout(hparams[HP_DROPOUT], name='drop_out_4')(mp_dense)
+    
+    preds = Dense(5, activation='softmax', name='preds')(drop_out_4)
+    model = Model(sequence_input, preds)
+    model.compile(loss='categorical_crossentropy', 
+#                                          optimizer='adam', 
+                                           optimizer=Adam(lr=1e-3),
+                                           metrics=['accuracy'])
+    model.fit(X_train, to_categorical(y_train), epochs=10) # Run with 1 epoch to speed things up for demo purposes
+    _, accuracy = model.evaluate(X_test, to_categorical(y_test))
+    return accuracy
+
+def hypertune_model():
+    """
+    This function uses teh previous functions to iterate through a set of parameters and run all possible combinations.
+    ----------
+    Parameters:
+    NONE    
+    ----------
+    """
+    with tf.summary.create_file_writer('logs/hparam_tuning').as_default():
+        hp.hparams_config(hparams=[HP_NUM_CONV_UNITS, HP_NUM_LSTM_UNITS, HP_NUM_DENSE_UNITS,HP_DROPOUT],
+                          metrics=[hp.Metric(METRIC_ACCURACY, display_name='Accuracy')])
+    session_num = 86
+    for num_conv_units in HP_NUM_CONV_UNITS.domain.values:
+        for num_dense_units in HP_NUM_DENSE_UNITS.domain.values:
+            for num_lstm_units in HP_NUM_LSTM_UNITS.domain.values:
+                for dropout_rate in (HP_DROPOUT.domain.min_value, HP_DROPOUT.domain.max_value):
+                    hparams = {
+                      HP_NUM_CONV_UNITS: num_conv_units,
+                      HP_NUM_DENSE_UNITS: num_dense_units, 
+                      HP_NUM_LSTM_UNITS: num_lstm_units , 
+                      HP_DROPOUT: dropout_rate,
+                    }
+                    run_name = "run-%d" % session_num
+                    print('--- Starting trial: %s' % run_name)
+                    print({h.name: hparams[h] for h in hparams})
+                    run('logs/hparam_tuning/' + run_name, hparams)
+                    session_num += 1
